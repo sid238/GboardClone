@@ -22,17 +22,16 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     private var currentMode = KeyboardMode.LETTERS
 
     private var theme: KeyboardTheme = KeyboardTheme.DARK
-    private var keyWidth = 0f
     private var keyHeight = 0f
-    private var keyMargin = 2.dp
-    private var keyRadius = 6.dp
+    private val keyMargin = 3.dp
+    private val keyRadius = 5.dp
+    private val suggestionHeight = 40.dp
 
-    private val keyRect = RectF()
-    private val previewRect = RectF()
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val subTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val previewTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val suggestionTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val dividerPaint = Paint()
 
     private var pressedKey: KeyData? = null
     private var pressedRow = -1
@@ -46,6 +45,8 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     private var soundEnabled = true
 
     private val keyRects = mutableMapOf<Pair<Int, Int>, RectF>()
+
+    private val suggestions = mutableListOf("the", "and", "for")
 
     private val Number.dp: Float
         get() = this.toFloat() * resources.displayMetrics.density
@@ -69,8 +70,7 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
             .build()
         clickSoundId = soundPool?.load(context, R.raw.key_click, 1) ?: 0
 
-        borderPaint.style = Paint.Style.STROKE
-        borderPaint.strokeWidth = 0.5.dp
+        dividerPaint.strokeWidth = 0.5.dp
     }
 
     fun setTheme(newTheme: KeyboardTheme) {
@@ -78,16 +78,14 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
         invalidate()
     }
 
-    fun setVibrationEnabled(enabled: Boolean) {
-        vibrationEnabled = enabled
-    }
+    fun setVibrationEnabled(enabled: Boolean) { vibrationEnabled = enabled }
+    fun setSoundEnabled(enabled: Boolean) { soundEnabled = enabled }
+    fun setPreviewEnabled(enabled: Boolean) { showPreview = enabled }
 
-    fun setSoundEnabled(enabled: Boolean) {
-        soundEnabled = enabled
-    }
-
-    fun setPreviewEnabled(enabled: Boolean) {
-        showPreview = enabled
+    fun setSuggestions(words: List<String>) {
+        suggestions.clear()
+        suggestions.addAll(words.take(3))
+        invalidate()
     }
 
     fun setLayout(layout: List<List<KeyData>>) {
@@ -115,50 +113,79 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
         invalidate()
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val width = MeasureSpec.getSize(widthMeasureSpec)
+        val screenHeight = resources.displayMetrics.heightPixels
+        val keyboardHeight = (screenHeight * 0.45f).toInt()
+        setMeasuredDimension(width, keyboardHeight)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         keyRects.clear()
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = MeasureSpec.getSize(widthMeasureSpec)
-        val totalRows = currentLayout.size
-        val height = (keyHeight * totalRows).toInt() + (keyMargin * (totalRows + 1)).toInt()
-        setMeasuredDimension(width, height)
-    }
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        backgroundPaint.color = theme.backgroundColor
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backgroundPaint)
+        val suggestionAreaHeight = suggestionHeight
+        val keyboardAreaHeight = height.toFloat() - suggestionAreaHeight
+
+        drawSuggestionStrip(canvas, suggestionAreaHeight)
 
         val totalRows = currentLayout.size
-        val availableHeight = height.toFloat() - keyMargin * (totalRows + 1)
+        val availableHeight = keyboardAreaHeight - keyMargin * (totalRows + 1)
         keyHeight = availableHeight / totalRows
 
-        val paddingHorizontal = keyMargin
+        val paddingHorizontal = 4.dp
 
         for (row in currentLayout.indices) {
             val rowData = currentLayout[row]
             val totalWidth = width.toFloat() - paddingHorizontal * 2
             val totalRatio = rowData.sumOf { it.widthRatio.toDouble() }.toFloat()
-            keyWidth = totalWidth / totalRatio
+            val keyW = totalWidth / totalRatio
 
             var xOffset = paddingHorizontal
-            val yOffset = keyMargin + row * (keyHeight + keyMargin)
+            val yOffset = suggestionHeight + keyMargin + row * (keyHeight + keyMargin)
 
             for (col in rowData.indices) {
                 val key = rowData[col]
-                val keyW = key.widthRatio * keyWidth
+                val kWidth = key.widthRatio * keyW
 
-                keyRect.set(xOffset, yOffset, xOffset + keyW, yOffset + keyHeight)
-                keyRects[Pair(row, col)] = RectF(keyRect)
+                val rect = RectF(xOffset, yOffset, xOffset + kWidth, yOffset + keyHeight)
+                keyRects[Pair(row, col)] = RectF(rect)
 
                 val isPressed = pressedRow == row && pressedCol == col
-                drawKey(canvas, key, keyRect, isPressed)
+                drawKey(canvas, key, rect, isPressed)
 
-                xOffset += keyW + keyMargin
+                xOffset += kWidth + keyMargin
+            }
+        }
+    }
+
+    private fun drawSuggestionStrip(canvas: Canvas, height: Float) {
+        val bgPaint = Paint()
+        bgPaint.color = theme.suggestionBackgroundColor
+        canvas.drawRect(0f, 0f, width.toFloat(), height, bgPaint)
+
+        dividerPaint.color = theme.borderColor
+        canvas.drawLine(0f, height, width.toFloat(), height, dividerPaint)
+
+        if (suggestions.isEmpty()) return
+
+        val itemWidth = width.toFloat() / suggestions.size
+        suggestionTextPaint.color = theme.suggestionColor
+        suggestionTextPaint.textSize = height * 0.4f
+        suggestionTextPaint.textAlign = Paint.Align.CENTER
+
+        for (i in suggestions.indices) {
+            val x = itemWidth * i + itemWidth / 2
+            val y = height / 2 + suggestionTextPaint.textSize / 3f
+            canvas.drawText(suggestions[i], x, y, suggestionTextPaint)
+
+            if (i < suggestions.size - 1) {
+                dividerPaint.color = theme.borderColor
+                canvas.drawLine(itemWidth * (i + 1), height * 0.2f, itemWidth * (i + 1), height * 0.8f, dividerPaint)
             }
         }
     }
@@ -173,37 +200,37 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
             else -> theme.keyBackgroundColor
         }
 
+        val inset = if (isPressed) 1.5.dp else 0.dp
+        val drawRect = RectF(
+            rect.left + inset, rect.top + inset,
+            rect.right - inset, rect.bottom - inset
+        )
+
         val drawable = GradientDrawable().apply {
             setShape(GradientDrawable.RECTANGLE)
             setColor(bgColor)
             cornerRadius = keyRadius
         }
-        drawable.setBounds(rect.left.toInt(), rect.top.toInt(), rect.right.toInt(), rect.bottom.toInt())
+        drawable.setBounds(
+            drawRect.left.toInt(), drawRect.top.toInt(),
+            drawRect.right.toInt(), drawRect.bottom.toInt()
+        )
         drawable.draw(canvas)
 
-        borderPaint.color = theme.borderColor
-        canvas.drawRoundRect(rect, keyRadius, keyRadius, borderPaint)
-
         val textColor = when {
-            isSpecial -> theme.specialKeyTextColor
+            key.type != KeyType.TEXT -> theme.specialKeyTextColor
             else -> theme.keyTextColor
         }
         textPaint.color = textColor
-        textPaint.textSize = when (key.type) {
-            KeyType.SPACE -> keyHeight * 0.3f
-            KeyType.ENTER -> keyHeight * 0.35f
-            KeyType.BACKSPACE -> keyHeight * 0.4f
-            KeyType.SHIFT -> keyHeight * 0.4f
-            else -> keyHeight * 0.45f
-        }
+        textPaint.textSize = keyHeight * 0.42f
         textPaint.textAlign = Paint.Align.CENTER
-        textPaint.typeface = theme.typeface
+        textPaint.isFakeBoldText = key.type == KeyType.TEXT
 
         val label = when (key.type) {
-            KeyType.SHIFT -> if (isCapsLock) "\u21E8" else if (isShifted) "\u21E7" else "\u21E9"
+            KeyType.SHIFT -> "\u2B06"
             KeyType.BACKSPACE -> "\u232B"
             KeyType.ENTER -> "\u23CE"
-            KeyType.SPACE -> "space"
+            KeyType.SPACE -> ""
             KeyType.NUMBERS, KeyType.SYMBOLS -> "?123"
             KeyType.ABC -> "ABC"
             KeyType.COMMA -> ","
@@ -211,9 +238,25 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
             else -> key.label
         }
 
-        val textX = rect.centerX()
-        val textY = rect.centerY() + textPaint.textSize / 3f
-        canvas.drawText(label, textX, textY, textPaint)
+        if (label.isNotEmpty()) {
+            val textX = drawRect.centerX()
+            val textY = drawRect.centerY() + textPaint.textSize / 3f
+            canvas.drawText(label, textX, textY, textPaint)
+        }
+
+        if (key.type == KeyType.SPACE) {
+            textPaint.textSize = keyHeight * 0.28f
+            textPaint.color = theme.specialKeyTextColor
+            textPaint.isFakeBoldText = false
+            canvas.drawText("space", drawRect.centerX(), drawRect.centerY() + textPaint.textSize / 3f, textPaint)
+        }
+
+        if (key.secondary != null && key.type == KeyType.TEXT) {
+            subTextPaint.color = (textColor and 0x00FFFFFF) or (0x80 shl 24)
+            subTextPaint.textSize = keyHeight * 0.2f
+            subTextPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(key.secondary, drawRect.right - 2.dp, drawRect.top + subTextPaint.textSize + 2.dp, subTextPaint)
+        }
 
         if (isPressed && showPreview && key.type == KeyType.TEXT) {
             drawPreview(canvas, key, rect)
@@ -221,18 +264,18 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     }
 
     private fun drawPreview(canvas: Canvas, key: KeyData, rect: RectF) {
-        val previewSize = keyHeight * 1.5f
-        previewRect.set(
+        val previewSize = keyHeight * 1.4f
+        val previewRect = RectF(
             rect.centerX() - previewSize / 2,
-            rect.top - previewSize + keyMargin,
+            rect.top - previewSize + 4.dp,
             rect.centerX() + previewSize / 2,
-            rect.top - keyMargin
+            rect.top - 4.dp
         )
 
         val drawable = GradientDrawable().apply {
             setShape(GradientDrawable.RECTANGLE)
             setColor(theme.previewBackgroundColor)
-            cornerRadius = keyRadius
+            cornerRadius = 8.dp
         }
         drawable.setBounds(
             previewRect.left.toInt(), previewRect.top.toInt(),
@@ -241,9 +284,15 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
         drawable.draw(canvas)
 
         previewTextPaint.color = theme.previewTextColor
-        previewTextPaint.textSize = keyHeight * 0.6f
+        previewTextPaint.textSize = keyHeight * 0.55f
         previewTextPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText(key.primary, previewRect.centerX(), previewRect.centerY() + previewTextPaint.textSize / 3f, previewTextPaint)
+        previewTextPaint.isFakeBoldText = true
+        canvas.drawText(
+            key.primary,
+            previewRect.centerX(),
+            previewRect.centerY() + previewTextPaint.textSize / 3f,
+            previewTextPaint
+        )
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -291,9 +340,7 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
 
     private fun findKeyAt(x: Float, y: Float): Pair<Int, Int>? {
         for ((pair, rect) in keyRects) {
-            if (rect.contains(x, y)) {
-                return pair
-            }
+            if (rect.contains(x, y)) return pair
         }
         return null
     }
@@ -302,15 +349,15 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
         if (vibrationEnabled) {
             vibrator?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    it.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+                    it.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
                 } else {
                     @Suppress("DEPRECATION")
-                    it.vibrate(20)
+                    it.vibrate(15)
                 }
             }
         }
         if (soundEnabled) {
-            soundPool?.play(clickSoundId, 0.5f, 0.5f, 1, 0, 1f)
+            soundPool?.play(clickSoundId, 0.3f, 0.3f, 1, 0, 1f)
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.gboardclone
 
-import android.graphics.Color
 import android.graphics.Typeface
 
 data class KeyboardTheme(
@@ -9,31 +8,31 @@ data class KeyboardTheme(
     val keyTextColor: Int = 0xFFFFFFFF.toInt(),
     val keyPressedColor: Int = 0xFF555555.toInt(),
     val specialKeyColor: Int = 0xFF2A2A2A.toInt(),
-    val specialKeyTextColor: Int = 0xFFFFFFFF.toInt(),
+    val specialKeyTextColor: Int = 0xFFAAAAAA.toInt(),
     val spaceBarColor: Int = 0xFF333333.toInt(),
-    val previewBackgroundColor: Int = 0xFF555555.toInt(),
+    val previewBackgroundColor: Int = 0xFF666666.toInt(),
     val previewTextColor: Int = 0xFFFFFFFF.toInt(),
-    val borderColor: Int = 0xFF444444.toInt(),
+    val borderColor: Int = 0xFF1E1E1E.toInt(),
     val suggestionColor: Int = 0xFFFFFFFF.toInt(),
-    val suggestionBackgroundColor: Int = 0xFF2A2A2A.toInt(),
-    val typeface: Typeface = Typeface.DEFAULT
+    val suggestionBackgroundColor: Int = 0xFF252525.toInt(),
+    val typeface: android.graphics.Typeface = android.graphics.Typeface.DEFAULT
 ) {
     companion object {
         val LIGHT = KeyboardTheme(
-            backgroundColor = 0xFFD1D5DB.toInt(),
+            backgroundColor = 0xFFE0E0E0.toInt(),
             keyBackgroundColor = 0xFFFFFFFF.toInt(),
             keyTextColor = 0xFF000000.toInt(),
-            keyPressedColor = 0xFFB0B0B0.toInt(),
-            specialKeyColor = 0xFFC4C7CC.toInt(),
-            specialKeyTextColor = 0xFF000000.toInt(),
+            keyPressedColor = 0xFFC8C8C8.toInt(),
+            specialKeyColor = 0xFFD5D5D5.toInt(),
+            specialKeyTextColor = 0xFF666666.toInt(),
             spaceBarColor = 0xFFFFFFFF.toInt(),
-            previewBackgroundColor = 0xFF333333.toInt(),
+            previewBackgroundColor = 0xFF444444.toInt(),
             previewTextColor = 0xFFFFFFFF.toInt(),
-            borderColor = 0xFFB0B0B0.toInt(),
+            borderColor = 0xFFE0E0E0.toInt(),
             suggestionColor = 0xFF000000.toInt(),
-            suggestionBackgroundColor = 0xFFE0E0E0.toInt()
+            suggestionBackgroundColor = 0xFFF5F5F5.toInt()
         )
 
-    val DARK = KeyboardTheme()
+        val DARK = KeyboardTheme()
     }
 }

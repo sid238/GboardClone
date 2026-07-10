@@ -14,17 +14,17 @@ object KeyboardLayouts {
             KeyData("j", "j"), KeyData("k", "k"), KeyData("l", "l")
         ),
         listOf(
-            KeyData("", "", type = KeyType.SHIFT),
+            KeyData("", "", type = KeyType.SHIFT, widthRatio = 1.3f),
             KeyData("z", "z"), KeyData("x", "x"), KeyData("c", "c"),
             KeyData("v", "v"), KeyData("b", "b"), KeyData("n", "n"),
-            KeyData("m", "m"), KeyData("", "", type = KeyType.BACKSPACE, widthRatio = 1.5f)
+            KeyData("m", "m"), KeyData("", "", type = KeyType.BACKSPACE, widthRatio = 1.3f)
         ),
         listOf(
-            KeyData("?123", "", type = KeyType.NUMBERS, widthRatio = 1.5f),
+            KeyData("?123", "", type = KeyType.NUMBERS, widthRatio = 1.3f),
             KeyData(",", ",", type = KeyType.COMMA),
             KeyData("", "", type = KeyType.SPACE, widthRatio = 5f),
             KeyData(".", ".", type = KeyType.PERIOD),
-            KeyData("", "", type = KeyType.ENTER, widthRatio = 1.5f)
+            KeyData("", "", type = KeyType.ENTER, widthRatio = 1.3f)
         )
     )
 
@@ -40,17 +40,17 @@ object KeyboardLayouts {
             KeyData("J", "J"), KeyData("K", "K"), KeyData("L", "L")
         ),
         listOf(
-            KeyData("", "", type = KeyType.SHIFT),
+            KeyData("", "", type = KeyType.SHIFT, widthRatio = 1.3f),
             KeyData("Z", "Z"), KeyData("X", "X"), KeyData("C", "C"),
             KeyData("V", "V"), KeyData("B", "B"), KeyData("N", "N"),
-            KeyData("M", "M"), KeyData("", "", type = KeyType.BACKSPACE, widthRatio = 1.5f)
+            KeyData("M", "M"), KeyData("", "", type = KeyType.BACKSPACE, widthRatio = 1.3f)
         ),
         listOf(
-            KeyData("?123", "", type = KeyType.NUMBERS, widthRatio = 1.5f),
+            KeyData("?123", "", type = KeyType.NUMBERS, widthRatio = 1.3f),
             KeyData(",", ",", type = KeyType.COMMA),
             KeyData("", "", type = KeyType.SPACE, widthRatio = 5f),
             KeyData(".", ".", type = KeyType.PERIOD),
-            KeyData("", "", type = KeyType.ENTER, widthRatio = 1.5f)
+            KeyData("", "", type = KeyType.ENTER, widthRatio = 1.3f)
         )
     )
 

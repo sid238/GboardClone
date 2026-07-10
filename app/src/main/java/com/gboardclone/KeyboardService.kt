@@ -8,7 +8,8 @@ class KeyboardService : InputMethodService() {
 
     private lateinit var keyboardView: KeyboardView
     private var isShifted = false
-    private var isCapsLock = false
+    private var capsLock = false
+    private var currentMode = KeyboardMode.LETTERS
 
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this, this)
@@ -18,9 +19,9 @@ class KeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        keyboardView.setLayout(KeyboardLayouts.QWERTY_LOWER)
         isShifted = true
         keyboardView.setShifted(true)
+        keyboardView.setSuggestions(listOf("the", "and", "for"))
     }
 
     fun onKeyPressed(key: KeyData) {
@@ -28,7 +29,7 @@ class KeyboardService : InputMethodService() {
 
         when (key.type) {
             KeyType.TEXT -> {
-                val text = if (isShifted && !isCapsLock) {
+                val text = if (isShifted && !capsLock) {
                     isShifted = false
                     keyboardView.setShifted(false)
                     key.primary
@@ -38,15 +39,15 @@ class KeyboardService : InputMethodService() {
                 ic.commitText(text, 1)
             }
             KeyType.SHIFT -> {
-                if (isCapsLock) {
-                    isCapsLock = false
-                    isShifted = false
-                } else if (isShifted) {
-                    isCapsLock = true
-                } else {
-                    isShifted = true
+                when {
+                    capsLock -> {
+                        capsLock = false
+                        isShifted = false
+                    }
+                    isShifted -> capsLock = true
+                    else -> isShifted = true
                 }
-                keyboardView.setShifted(isShifted || isCapsLock)
+                keyboardView.setShifted(isShifted || capsLock)
             }
             KeyType.BACKSPACE -> {
                 ic.deleteSurroundingText(1, 0)
