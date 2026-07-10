@@ -1,5 +1,6 @@
 package com.gboardclone
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -13,6 +14,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 
 class KeyboardView(context: Context, private val service: KeyboardService) : View(context) {
 
@@ -24,8 +26,8 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     private var theme: KeyboardTheme = KeyboardTheme.DARK
     private var keyHeight = 0f
     private val keyMargin = 3.dp
-    private val keyRadius = 5.dp
-    private val suggestionHeight = 40.dp
+    private val keyRadius = 6.dp
+    private val suggestionHeight = 42.dp
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val subTextPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -45,7 +47,6 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     private var soundEnabled = true
 
     private val keyRects = mutableMapOf<Pair<Int, Int>, RectF>()
-
     private val suggestions = mutableListOf("the", "and", "for")
 
     private val Number.dp: Float
@@ -116,7 +117,7 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val screenHeight = resources.displayMetrics.heightPixels
-        val keyboardHeight = (screenHeight * 0.45f).toInt()
+        val keyboardHeight = (screenHeight * 0.42f).toInt()
         setMeasuredDimension(width, keyboardHeight)
     }
 
