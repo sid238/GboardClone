@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gboard Clone</string>
+    <string name="settings">Settings</string>
+    <string name="theme_label">Theme</string>
+    <string name="light">Light</string>
+    <string name="dark">Dark</string>
+    <string name="vibration_label">Vibration on key press</string>
+    <string name="sound_label">Sound on key press</string>
+    <string name="preview_label">Show key preview popup</string>
+</resources>
