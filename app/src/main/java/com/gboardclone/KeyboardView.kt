@@ -47,8 +47,8 @@ class KeyboardView(context: Context, private val service: KeyboardService) : Vie
 
     private val keyRects = mutableMapOf<Pair<Int, Int>, RectF>()
 
-    private val Int.dp: Float
-        get() = this * resources.displayMetrics.density
+    private val Number.dp: Float
+        get() = this.toFloat() * resources.displayMetrics.density
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
