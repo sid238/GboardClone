@@ -27,6 +27,14 @@ object Prefs {
         get() = sp.getBoolean(KEY_SOUND, false)
         set(v) = sp.edit().putBoolean(KEY_SOUND, v).apply()
 
+    var toolbarCollapsed: Boolean
+        get() = sp.getBoolean(KEY_TOOLBAR_COLLAPSED, false)
+        set(v) = sp.edit().putBoolean(KEY_TOOLBAR_COLLAPSED, v).apply()
+
+    var heightScale: Float
+        get() = sp.getFloat(KEY_HEIGHT_SCALE, 1.0f)
+        set(v) = sp.edit().putFloat(KEY_HEIGHT_SCALE, v).apply()
+
     var emojiRecents: List<String>
         get() = sp.getString(KEY_EMOJI_RECENTS, "")
             ?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
@@ -71,6 +79,8 @@ object Prefs {
     private const val KEY_NUMBER_ROW = "number_row"
     private const val KEY_VIBRATION = "vibration"
     private const val KEY_SOUND = "sound"
+    private const val KEY_TOOLBAR_COLLAPSED = "toolbar_collapsed"
+    private const val KEY_HEIGHT_SCALE = "height_scale"
     private const val KEY_EMOJI_RECENTS = "emoji_recents"
     private const val KEY_CLIPBOARD = "clipboard"
     private const val KEY_PINNED = "pinned"

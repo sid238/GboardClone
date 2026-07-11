@@ -21,6 +21,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.GridView
@@ -41,7 +42,10 @@ class GboardCloneService : InputMethodService() {
 
     private lateinit var rootView: LinearLayout
     private lateinit var keyRowsContainer: LinearLayout
-    private var shiftKey: Button? = null
+    private var shiftKey: ImageView? = null
+    private var resizeHandle: View? = null
+    private var pendingScale = Prefs.heightScale
+    private var keyPopup: PopupWindow? = null
 
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var repeatRunnable: Runnable? = null
@@ -123,6 +127,13 @@ class GboardCloneService : InputMethodService() {
     private val bgPopup get() = themeColor(R.color.popup_bg, R.color.popup_bg_dark)
     private val txPopup get() = themeColor(R.color.popup_text, R.color.popup_text_dark)
 
+    private val bgAccent get() = themeColor(R.color.key_accent_bg, R.color.key_accent_bg)
+    private val bgAccentPressed get() = themeColor(R.color.key_accent_bg_pressed, R.color.key_accent_bg_pressed)
+    private val txAccent: Int get() = 0xFFFFFFFF.toInt()
+
+    private val keyH get() = dp((48 * Prefs.heightScale).toInt().coerceAtLeast(30))
+    private val fnH get() = dp((40 * Prefs.heightScale).toInt().coerceAtLeast(24))
+
     private fun themeColor(light: Int, dark: Int): Int =
         ContextCompat.getColor(this, if (Prefs.isDark) dark else light)
 
@@ -170,6 +181,15 @@ class GboardCloneService : InputMethodService() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
+        resizeHandle = View(this).apply {
+            background = roundRect(bgSpecial, 6)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8)).apply {
+                setMargins(dp(64), dp(3), dp(64), dp(1))
+            }
+        }
+        setupResizeHandle(resizeHandle!!)
+        container.addView(resizeHandle)
+
         keyRowsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
@@ -180,6 +200,34 @@ class GboardCloneService : InputMethodService() {
         }
         container.addView(keyRowsContainer)
         return container
+    }
+
+    private fun setupResizeHandle(v: View) {
+        var startY = 0f
+        var startScale = 1f
+        v.setOnTouchListener { _, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = e.rawY
+                    startScale = Prefs.heightScale
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = startY - e.rawY
+                    val s = (startScale + dy / 500f).coerceIn(0.7f, 1.6f)
+                    rootView.scaleY = s
+                    pendingScale = s
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    Prefs.heightScale = pendingScale
+                    rootView.scaleY = 1f
+                    renderKeyboard()
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun renderKeyboard() {
@@ -220,10 +268,20 @@ class GboardCloneService : InputMethodService() {
 
     private fun functionStrip() {
         val row = newRow()
-        row.addView(makeIconKey(R.drawable.ic_mic, 1.2f) { startVoice() })
-        row.addView(makeIconKey(R.drawable.ic_emoji, 1.2f) { mode = KeyboardMode.EMOJI; renderKeyboard() })
-        row.addView(makeIconKey(R.drawable.ic_clipboard, 1.2f) { mode = KeyboardMode.CLIPBOARD; renderKeyboard() })
-        row.addView(makeIconKey(R.drawable.ic_settings, 1.2f) { openSettings() })
+        if (Prefs.toolbarCollapsed) {
+            row.addView(makeIconKey(R.drawable.ic_chevron, 1.2f, rotate = 0f) {
+                Prefs.toolbarCollapsed = false
+                renderKeyboard()
+            })
+        } else {
+            row.addView(makeIconKey(R.drawable.ic_mic, 1.2f) { startVoice() })
+            row.addView(makeIconKey(R.drawable.ic_clipboard, 1.2f) { mode = KeyboardMode.CLIPBOARD; renderKeyboard() })
+            row.addView(makeIconKey(R.drawable.ic_settings, 1.2f) { openSettings() })
+            row.addView(makeIconKey(R.drawable.ic_chevron, 1.2f, rotate = 180f) {
+                Prefs.toolbarCollapsed = true
+                renderKeyboard()
+            })
+        }
         keyRowsContainer.addView(row)
     }
 
@@ -254,7 +312,7 @@ class GboardCloneService : InputMethodService() {
 
     private fun buildThirdLetterRow(): LinearLayout {
         val row = newRow()
-        shiftKey = makeSpecialKey(shiftLabel(), weight = 1.5f, isToggle = true) { onShiftPressed() }
+        shiftKey = makeShiftKey()
         row.addView(shiftKey!!)
         for (letter in KeyboardLayouts.lettersRow3) row.addView(makeCharKey(letter))
         row.addView(makeSpecialKey("⌫", weight = 1.5f, repeatable = true) { onDeletePressed() })
@@ -285,10 +343,11 @@ class GboardCloneService : InputMethodService() {
             mode = if (mode == KeyboardMode.LETTERS) KeyboardMode.SYMBOLS_1 else KeyboardMode.LETTERS
             renderKeyboard()
         })
+        row.addView(makeIconKey(R.drawable.ic_emoji, 1f) { mode = KeyboardMode.EMOJI; renderKeyboard() })
         row.addView(makeSpecialKey(",", weight = 1f) { typeChar(",") })
-        row.addView(makeSpecialKey("space", weight = 4f) { onSpace() })
+        row.addView(makeSpecialKey("space", weight = 4f, longPress = { showImePicker() }) { onSpace() })
         row.addView(makeSpecialKey(".", weight = 1f) { typeChar(".") })
-        row.addView(makeSpecialKey("⏎", weight = 1.5f) { onEnterPressed() })
+        row.addView(makeEnterKey(1.5f) { onEnterPressed() })
         return row
     }
 
@@ -296,44 +355,59 @@ class GboardCloneService : InputMethodService() {
     // Key factories
     // ---------------------------------------------------------------------------
     private fun spacer(weight: Float): View = View(this).apply {
-        layoutParams = LinearLayout.LayoutParams(0, dp(48), weight)
+        layoutParams = LinearLayout.LayoutParams(0, keyH, weight)
     }
 
-    private fun makeCharKey(char: String): Button {
-        val display = applyCase(char)
-        return Button(this).apply {
-            text = display
-            isAllCaps = false
-            textSize = 20f
-            setTextColor(txKey)
+    private fun makeCharKey(char: String): View {
+        val variantHint = KeyboardLayouts.longPressVariants[char.lowercase()]?.firstOrNull() ?: ""
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             background = makeKeyDrawable(bgKey, bgKeyPressed)
             elevation = 0f
             stateListAnimator = null
-            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            layoutParams = LinearLayout.LayoutParams(0, keyH, 1f).apply {
                 marginStart = dp(2); marginEnd = dp(2)
             }
-            setOnClickListener {
-                haptic(this); clickSound()
-                typeChar(char)
-                consumeOneShotShift()
-            }
-            val variants = KeyboardLayouts.longPressVariants[char.lowercase()]
-            if (!variants.isNullOrEmpty()) {
-                setOnLongClickListener {
-                    showVariantPopup(this, variants) { picked ->
-                        typeCharRaw(applyCase(picked))
-                    }
-                    true
-                }
+        }
+        if (variantHint.isNotEmpty()) {
+            container.addView(TextView(this).apply {
+                text = variantHint
+                textSize = 10f
+                setTextColor(txSpecial)
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+            })
+        }
+        val label = TextView(this).apply {
+            text = applyCase(char)
+            textSize = 20f
+            setTextColor(txKey)
+            gravity = Gravity.CENTER
+            isAllCaps = false
+        }
+        container.addView(label)
+        container.setOnClickListener {
+            haptic(container); clickSound()
+            typeChar(char)
+            consumeOneShotShift()
+        }
+        val variants = KeyboardLayouts.longPressVariants[char.lowercase()]
+        if (!variants.isNullOrEmpty()) {
+            container.setOnLongClickListener {
+                showVariantPopup(container, variants) { picked -> typeCharRaw(applyCase(picked)) }
+                true
             }
         }
+        attachKeyPop(container, applyCase(char))
+        return container
     }
 
     private fun makeSpecialKey(
         label: String,
         weight: Float,
-        isToggle: Boolean = false,
         repeatable: Boolean = false,
+        longPress: (() -> Unit)? = null,
         action: () -> Unit
     ): Button {
         return Button(this).apply {
@@ -341,29 +415,61 @@ class GboardCloneService : InputMethodService() {
             isAllCaps = false
             textSize = 16f
             setTextColor(txSpecial)
-            if (isToggle && shiftState != ShiftState.OFF) {
-                setTextColor(themeColor(R.color.key_accent_bg, R.color.key_accent_bg))
-            }
             background = makeKeyDrawable(bgSpecial, bgSpecialPressed)
             elevation = 0f
             stateListAnimator = null
-            layoutParams = LinearLayout.LayoutParams(0, dp(48), weight).apply {
+            layoutParams = LinearLayout.LayoutParams(0, keyH, weight).apply {
                 marginStart = dp(2); marginEnd = dp(2)
             }
             if (repeatable) setupRepeatOnHold(this, action)
             else setOnClickListener { haptic(this); clickSound(); action() }
+            if (longPress != null) setOnLongClickListener {
+                haptic(this); longPress(); true
+            }
         }
     }
 
-    private fun makeIconKey(drawableId: Int, weight: Float, action: () -> Unit): ImageView {
+    private fun makeShiftKey(): ImageView {
+        return ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = makeKeyDrawable(bgSpecial, bgSpecialPressed)
+            elevation = 0f
+            stateListAnimator = null
+            layoutParams = LinearLayout.LayoutParams(0, keyH, 1.5f).apply {
+                marginStart = dp(2); marginEnd = dp(2)
+            }
+            setOnClickListener { haptic(this); clickSound(); onShiftPressed() }
+            updateShiftKey(this)
+        }
+    }
+
+    private fun makeEnterKey(weight: Float, action: () -> Unit): ImageView {
+        return ImageView(this).apply {
+            setImageResource(R.drawable.ic_enter)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setColorFilter(txAccent, PorterDuff.Mode.SRC_IN)
+            background = makeKeyDrawable(bgAccent, bgAccentPressed)
+            elevation = 0f
+            stateListAnimator = null
+            layoutParams = LinearLayout.LayoutParams(0, keyH, weight).apply {
+                marginStart = dp(2); marginEnd = dp(2)
+            }
+            setOnClickListener { haptic(this); clickSound(); action() }
+        }
+    }
+
+    private fun makeIconKey(drawableId: Int, weight: Float, rotate: Float = 0f, action: () -> Unit): ImageView {
         return ImageView(this).apply {
             setImageResource(drawableId)
             scaleType = ImageView.ScaleType.CENTER_INSIDE
+            rotation = rotate
             setColorFilter(txSpecial, PorterDuff.Mode.SRC_IN)
             background = makeKeyDrawable(bgSpecial, bgSpecialPressed)
             elevation = 0f
             stateListAnimator = null
-            layoutParams = LinearLayout.LayoutParams(0, dp(40), weight).apply {
+            layoutParams = LinearLayout.LayoutParams(0, fnH, weight).apply {
                 marginStart = dp(2); marginEnd = dp(2)
             }
             setOnClickListener { haptic(this); clickSound(); action() }
@@ -396,6 +502,8 @@ class GboardCloneService : InputMethodService() {
     }
 
     private fun showVariantPopup(anchor: View, variants: List<String>, onPick: (String) -> Unit) {
+        keyPopup?.dismiss()
+        keyPopup = null
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
@@ -429,6 +537,48 @@ class GboardCloneService : InputMethodService() {
     }
 
     private var popup: PopupWindow? = null
+
+    private fun attachKeyPop(view: View, text: String) {
+        view.setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    showKeyPopup(v, text)
+                    false
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    keyPopup?.dismiss()
+                    keyPopup = null
+                    false
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun showKeyPopup(anchor: View, text: String) {
+        val tv = TextView(this).apply {
+            this.text = text
+            textSize = 28f
+            setTextColor(txPopup)
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = makeKeyDrawable(bgPopup, bgPopup)
+        }
+        val p = PopupWindow(this).apply {
+            contentView = tv
+            isOutsideTouchable = true
+            setBackgroundDrawable(roundRect(bgPopup, 12))
+        }
+        keyPopup = p
+        p.showAsDropDown(anchor, 0, -(anchor.height + dp(10)))
+    }
+
+    private fun showImePicker() {
+        try {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showInputMethodPicker()
+        } catch (_: Exception) {
+        }
+    }
 
     // ---------------------------------------------------------------------------
     // Key actions / text
@@ -488,15 +638,16 @@ class GboardCloneService : InputMethodService() {
         }
     }
 
-    private fun updateShiftKey(btn: Button) {
-        btn.text = shiftLabel()
-        btn.setTextColor(txSpecial)
-    }
-
-    private fun shiftLabel(): String = when (shiftState) {
-        ShiftState.OFF -> "⇧"
-        ShiftState.SHIFT -> "⬆"
-        ShiftState.CAPS_LOCK -> "⇪"
+    private fun updateShiftKey(iv: ImageView) {
+        val active = shiftState != ShiftState.OFF
+        iv.setImageResource(
+            if (shiftState == ShiftState.CAPS_LOCK) R.drawable.ic_shift_lock
+            else R.drawable.ic_shift
+        )
+        iv.setColorFilter(
+            if (active) bgAccent else txSpecial,
+            PorterDuff.Mode.SRC_IN
+        )
     }
 
     private fun applyCase(char: String): String {
