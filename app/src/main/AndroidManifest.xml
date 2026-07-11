@@ -25,6 +25,11 @@
             android:exported="false"
             android:label="@string/settings" />
 
+        <activity
+            android:name=".PermissionActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".GboardCloneService"
             android:label="@string/app_name"

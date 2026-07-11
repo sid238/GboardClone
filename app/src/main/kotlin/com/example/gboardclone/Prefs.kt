@@ -37,6 +37,17 @@ object Prefs {
             ?.split("\u0001")?.filter { it.isNotEmpty() } ?: emptyList()
         set(v) = sp.edit().putString(KEY_CLIPBOARD, v.joinToString("\u0001")).apply()
 
+    var pinned: List<String>
+        get() = sp.getString(KEY_PINNED, "")
+            ?.split("\u0001")?.filter { it.isNotEmpty() } ?: emptyList()
+        set(v) = sp.edit().putString(KEY_PINNED, v.joinToString("\u0001")).apply()
+
+    fun togglePin(text: String) {
+        val list = pinned.toMutableList()
+        if (list.contains(text)) list.remove(text) else list.add(0, text)
+        pinned = list
+    }
+
     var learnedWords: Set<String>
         get() = sp.getStringSet(KEY_LEARNED, emptySet()) ?: emptySet()
         set(v) = sp.edit().putStringSet(KEY_LEARNED, v).apply()
@@ -62,5 +73,6 @@ object Prefs {
     private const val KEY_SOUND = "sound"
     private const val KEY_EMOJI_RECENTS = "emoji_recents"
     private const val KEY_CLIPBOARD = "clipboard"
+    private const val KEY_PINNED = "pinned"
     private const val KEY_LEARNED = "learned"
 }

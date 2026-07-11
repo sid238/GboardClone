@@ -1,8 +1,12 @@
 package com.example.gboardclone
 
 import android.content.Intent
+import android.content.ClipboardManager
+import android.content.pm.PackageManager
+import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.Manifest
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Bundle
@@ -20,6 +24,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.GridView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
@@ -36,7 +41,7 @@ class GboardCloneService : InputMethodService() {
 
     private lateinit var rootView: LinearLayout
     private lateinit var keyRowsContainer: LinearLayout
-    private lateinit var suggestionStrip: LinearLayout
+    private var shiftKey: Button? = null
 
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var repeatRunnable: Runnable? = null
@@ -51,6 +56,21 @@ class GboardCloneService : InputMethodService() {
         Prefs.init(this)
         SuggestionEngine.loadLearned(Prefs.learnedWords)
         if (Prefs.sound) tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 40)
+        registerClipboardListener()
+    }
+
+    private fun registerClipboardListener() {
+        try {
+            val cm = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+            cm.addPrimaryClipChangedListener {
+                try {
+                    val text = cm.primaryClip?.getItemAt(0)?.text?.toString()
+                    if (!text.isNullOrEmpty()) Prefs.addClipboard(text)
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -150,16 +170,6 @@ class GboardCloneService : InputMethodService() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        suggestionStrip = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(bgSuggestion)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(40)
-            )
-        }
-        container.addView(suggestionStrip)
-
         keyRowsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(6), dp(4), dp(6))
@@ -202,35 +212,18 @@ class GboardCloneService : InputMethodService() {
             KeyboardMode.EMOJI -> emojiPanel()
             KeyboardMode.CLIPBOARD -> clipboardPanel()
         }
-        updateSuggestions()
         } catch (e: Exception) {
             keyRowsContainer.removeAllViews()
             keyRowsContainer.addView(errorView("Render error: ${e.message}"))
         }
     }
 
-    private fun renderSuggestionStrip(words: List<String>) {
-        suggestionStrip.removeAllViews()
-        suggestionStrip.setBackgroundColor(bgSuggestion)
-        for (word in words) {
-            val tv = TextView(this).apply {
-                text = word
-                gravity = Gravity.CENTER
-                setTextColor(txKey)
-                textSize = 16f
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
-                setOnClickListener { replaceWord(word) }
-            }
-            suggestionStrip.addView(tv)
-        }
-    }
-
     private fun functionStrip() {
         val row = newRow()
-        row.addView(makeFnKey("🎤", 1.2f) { startVoice() })
-        row.addView(makeFnKey("😊", 1.2f) { mode = KeyboardMode.EMOJI; renderKeyboard() })
-        row.addView(makeFnKey("📋", 1.2f) { mode = KeyboardMode.CLIPBOARD; renderKeyboard() })
-        row.addView(makeFnKey("⚙️", 1.2f) { openSettings() })
+        row.addView(makeIconKey(R.drawable.ic_mic, 1.2f) { startVoice() })
+        row.addView(makeIconKey(R.drawable.ic_emoji, 1.2f) { mode = KeyboardMode.EMOJI; renderKeyboard() })
+        row.addView(makeIconKey(R.drawable.ic_clipboard, 1.2f) { mode = KeyboardMode.CLIPBOARD; renderKeyboard() })
+        row.addView(makeIconKey(R.drawable.ic_settings, 1.2f) { openSettings() })
         keyRowsContainer.addView(row)
     }
 
@@ -261,7 +254,8 @@ class GboardCloneService : InputMethodService() {
 
     private fun buildThirdLetterRow(): LinearLayout {
         val row = newRow()
-        row.addView(makeSpecialKey(shiftLabel(), weight = 1.5f, isToggle = true) { onShiftPressed() })
+        shiftKey = makeSpecialKey(shiftLabel(), weight = 1.5f, isToggle = true) { onShiftPressed() }
+        row.addView(shiftKey!!)
         for (letter in KeyboardLayouts.lettersRow3) row.addView(makeCharKey(letter))
         row.addView(makeSpecialKey("⌫", weight = 1.5f, repeatable = true) { onDeletePressed() })
         return row
@@ -287,7 +281,6 @@ class GboardCloneService : InputMethodService() {
     private fun buildBottomRow(): LinearLayout {
         val row = newRow()
         val symbolsLabel = if (mode == KeyboardMode.LETTERS) "?123" else "ABC"
-        row.addView(makeSpecialKey("🌐", weight = 1.2f) { onGlobePressed() })
         row.addView(makeSpecialKey(symbolsLabel, weight = 1.5f) {
             mode = if (mode == KeyboardMode.LETTERS) KeyboardMode.SYMBOLS_1 else KeyboardMode.LETTERS
             renderKeyboard()
@@ -362,11 +355,11 @@ class GboardCloneService : InputMethodService() {
         }
     }
 
-    private fun makeFnKey(label: String, weight: Float, action: () -> Unit): Button {
-        return Button(this).apply {
-            text = label
-            textSize = 18f
-            setTextColor(txSpecial)
+    private fun makeIconKey(drawableId: Int, weight: Float, action: () -> Unit): ImageView {
+        return ImageView(this).apply {
+            setImageResource(drawableId)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setColorFilter(txSpecial, PorterDuff.Mode.SRC_IN)
             background = makeKeyDrawable(bgSpecial, bgSpecialPressed)
             elevation = 0f
             stateListAnimator = null
@@ -446,12 +439,10 @@ class GboardCloneService : InputMethodService() {
 
     private fun typeCharRaw(ch: String) {
         commitText(ch)
-        updateSuggestions()
     }
 
     private fun typeChar(ch: String) {
         commitText(applyCase(ch))
-        updateSuggestions()
     }
 
     private fun onSpace() {
@@ -462,13 +453,11 @@ class GboardCloneService : InputMethodService() {
             saveLearned()
         }
         voicePartialLength = 0
-        updateSuggestions()
     }
 
     private fun onDeletePressed() {
         currentInputConnection?.deleteSurroundingText(1, 0)
         voicePartialLength = 0
-        updateSuggestions()
     }
 
     private fun onEnterPressed() {
@@ -492,15 +481,16 @@ class GboardCloneService : InputMethodService() {
         renderKeyboard()
     }
 
-    private fun onGlobePressed() {
-        toast("Language switching is not configured")
-    }
-
     private fun consumeOneShotShift() {
         if (shiftState == ShiftState.SHIFT) {
             shiftState = ShiftState.OFF
-            renderKeyboard()
+            shiftKey?.let { updateShiftKey(it) } ?: renderKeyboard()
         }
+    }
+
+    private fun updateShiftKey(btn: Button) {
+        btn.text = shiftLabel()
+        btn.setTextColor(txSpecial)
     }
 
     private fun shiftLabel(): String = when (shiftState) {
@@ -521,23 +511,6 @@ class GboardCloneService : InputMethodService() {
         return m?.value ?: ""
     }
 
-    private fun replaceWord(suggestion: String) {
-        val w = currentWord()
-        val ic = currentInputConnection ?: return
-        ic.deleteSurroundingText(w.length, 0)
-        ic.commitText("$suggestion ", 1)
-        SuggestionEngine.learn(suggestion)
-        saveLearned()
-        voicePartialLength = 0
-        updateSuggestions()
-    }
-
-    private fun updateSuggestions() {
-        if (mode == KeyboardMode.EMOJI || mode == KeyboardMode.CLIPBOARD) return
-        val sugg = SuggestionEngine.suggestions(currentWord())
-        renderSuggestionStrip(sugg.take(3))
-    }
-
     private fun saveLearned() {
         Prefs.learnedWords = SuggestionEngine.getLearned()
     }
@@ -546,7 +519,6 @@ class GboardCloneService : InputMethodService() {
     // Emoji panel
     // ---------------------------------------------------------------------------
     private fun emojiPanel() {
-        suggestionStrip.removeAllViews()
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -616,7 +588,6 @@ class GboardCloneService : InputMethodService() {
     // Clipboard panel
     // ---------------------------------------------------------------------------
     private fun clipboardPanel() {
-        suggestionStrip.removeAllViews()
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -628,8 +599,9 @@ class GboardCloneService : InputMethodService() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        val items = Prefs.clipboard
-        if (items.isEmpty()) {
+        val pinned = Prefs.pinned
+        val recent = Prefs.clipboard.filter { !pinned.contains(it) }
+        if (pinned.isEmpty() && recent.isEmpty()) {
             col.addView(TextView(this).apply {
                 text = getString(R.string.clipboard_empty)
                 setTextColor(txSpecial)
@@ -637,25 +609,48 @@ class GboardCloneService : InputMethodService() {
                 setPadding(dp(8), dp(8), dp(8), dp(8))
             })
         }
-        for (text in items) {
-            val tv = TextView(this).apply {
-                this.text = text
-                setTextColor(txKey)
-                textSize = 15f
-                setPadding(dp(12), dp(12), dp(12), dp(12))
+        fun addItem(text: String, isPinned: Boolean) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
                 background = makeKeyDrawable(bgKey, bgKeyPressed)
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply { bottomMargin = dp(8) }
+            }
+            val tv = TextView(this).apply {
+                this.text = text
+                setTextColor(txKey)
+                textSize = 15f
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 setOnClickListener {
                     haptic(this); clickSound()
                     commitText(text)
                     toast("Pasted")
                 }
             }
-            col.addView(tv)
+            val pin = ImageView(this).apply {
+                setImageResource(R.drawable.ic_pin)
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setColorFilter(
+                    if (isPinned) themeColor(R.color.key_accent_bg, R.color.key_accent_bg)
+                    else txSpecial,
+                    PorterDuff.Mode.SRC_IN
+                )
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+                setOnClickListener {
+                    Prefs.togglePin(text)
+                    renderKeyboard()
+                }
+            }
+            row.addView(tv)
+            row.addView(pin)
+            col.addView(row)
         }
+        for (text in pinned) addItem(text, true)
+        for (text in recent) addItem(text, false)
         scroll.addView(col)
 
         val bar = newRow()
@@ -663,7 +658,7 @@ class GboardCloneService : InputMethodService() {
             mode = KeyboardMode.LETTERS
             renderKeyboard()
         })
-        bar.addView(makeSpecialKey("🗑", weight = 2f) {
+        bar.addView(makeSpecialKey("Clear", weight = 2f) {
             Prefs.clipboard = emptyList()
             renderKeyboard()
         })
@@ -676,6 +671,15 @@ class GboardCloneService : InputMethodService() {
     // Voice typing
     // ---------------------------------------------------------------------------
     private fun startVoice() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            val i = Intent(this, PermissionActivity::class.java)
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(i)
+            toast("Grant microphone permission for voice typing")
+            return
+        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             toast("Voice typing unavailable on this device")
             return
@@ -700,7 +704,6 @@ class GboardCloneService : InputMethodService() {
                     val ic = currentInputConnection ?: return
                     if (voicePartialLength > 0) ic.deleteSurroundingText(voicePartialLength, 0)
                     ic.commitText(text, 1)
-                    updateSuggestions()
                 }
                 voicePartialLength = 0
             }
