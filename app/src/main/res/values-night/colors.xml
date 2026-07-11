@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App-level dark overrides (activities use Material DayNight) -->
+    <color name="white">#121212</color>
+    <color name="key_text_light">#BDC1C6</color>
+</resources>

@@ -70,4 +70,14 @@ object KeyboardLayouts {
         "." to listOf(",", "?", "!", ";", ":"),
         "," to listOf(".", ";", ":")
     )
+
+    /** Small hint shown on top of each letter key (phone-style number/symbol map). */
+    val hintMap: Map<String, String> = mapOf(
+        "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
+        "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0",
+        "a" to "@", "s" to "#", "d" to "\$", "f" to "%", "g" to "^",
+        "h" to "&", "j" to "*", "k" to "(", "l" to ")",
+        "z" to "*", "x" to "(", "c" to ")", "v" to "?", "b" to "-",
+        "n" to "_", "m" to "+"
+    )
 }

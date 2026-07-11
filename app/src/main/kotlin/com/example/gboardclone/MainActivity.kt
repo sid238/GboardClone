@@ -1,6 +1,7 @@
 package com.example.gboardclone
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
@@ -14,6 +15,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Prefs.init(this)
+        ThemeHelper.apply(Prefs.themeMode)
         try {
             setContentView(R.layout.activity_main)
 
@@ -29,9 +32,36 @@ class MainActivity : AppCompatActivity() {
             findViewById<MaterialButton>(R.id.settingsButton).setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java))
             }
+
+            setupThemeChooser()
         } catch (e: Exception) {
             showError(e)
         }
+    }
+
+    private fun setupThemeChooser() {
+        val buttons = listOf(
+            R.id.themeLight to 0,
+            R.id.themeDark to 1,
+            R.id.themeSystem to 2
+        )
+        fun refresh() {
+            for ((id, mode) in buttons) {
+                val b = findViewById<MaterialButton>(id)
+                val selected = Prefs.themeMode == mode
+                val color = if (selected) R.color.purple_500 else R.color.key_text_light
+                b.strokeColor = ColorStateList.valueOf(resources.getColor(color, theme))
+                b.setTextColor(resources.getColor(color, theme))
+            }
+        }
+        for ((id, mode) in buttons) {
+            findViewById<MaterialButton>(id).setOnClickListener {
+                Prefs.themeMode = mode
+                ThemeHelper.apply(mode)
+                refresh()
+            }
+        }
+        refresh()
     }
 
     private fun showError(e: Throwable) {

@@ -10,14 +10,14 @@
     <color name="suggestion_bg">#F1F3F4</color>
 
     <!-- Dark theme (Gboard dark) -->
-    <color name="keyboard_bg_dark">#1B1B1B</color>
-    <color name="key_bg_dark">#3C4043</color>
-    <color name="key_bg_pressed_dark">#52565A</color>
-    <color name="key_special_bg_dark">#2E2E2E</color>
-    <color name="key_special_bg_pressed_dark">#454545</color>
-    <color name="key_text_dark">#E8EAED</color>
-    <color name="key_text_light_dark">#BDC1C6</color>
-    <color name="suggestion_bg_dark">#1B1B1B</color>
+    <color name="keyboard_bg_dark">#121212</color>
+    <color name="key_bg_dark">#4A4D51</color>
+    <color name="key_bg_pressed_dark">#5C6166</color>
+    <color name="key_special_bg_dark">#3A3D40</color>
+    <color name="key_special_bg_pressed_dark">#4E5155</color>
+    <color name="key_text_dark">#FFFFFF</color>
+    <color name="key_text_light_dark">#C9CDD1</color>
+    <color name="suggestion_bg_dark">#121212</color>
 
     <!-- Popup (long-press) -->
     <color name="popup_bg">#FFFFFF</color>

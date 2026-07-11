@@ -2,6 +2,7 @@ package com.example.gboardclone
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.Configuration
 
 object Prefs {
     private const val NAME = "gboardclone_prefs"
@@ -11,9 +12,22 @@ object Prefs {
         sp = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
     }
 
+    /** 0 = light, 1 = dark, 2 = system */
+    var themeMode: Int
+        get() = sp.getInt(KEY_THEME_MODE, 0)
+        set(v) = sp.edit().putInt(KEY_THEME_MODE, v).apply()
+
+    val isDarkNow: Boolean
+        get() = when (themeMode) {
+            1 -> true
+            2 -> (Resources.getSystem().configuration.uiMode
+                    and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            else -> false
+        }
+
     var isDark: Boolean
-        get() = sp.getBoolean(KEY_DARK, false)
-        set(v) = sp.edit().putBoolean(KEY_DARK, v).apply()
+        get() = isDarkNow
+        set(v) = themeMode = if (v) 1 else 0
 
     var numberRow: Boolean
         get() = sp.getBoolean(KEY_NUMBER_ROW, false)
@@ -76,6 +90,7 @@ object Prefs {
     }
 
     private const val KEY_DARK = "dark"
+    private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_NUMBER_ROW = "number_row"
     private const val KEY_VIBRATION = "vibration"
     private const val KEY_SOUND = "sound"

@@ -9,6 +9,8 @@
     <string name="theme">Theme</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+    <string name="theme_choose">Choose theme</string>
     <string name="number_row">Number row</string>
     <string name="number_row_summary">Show digits above the letters</string>
     <string name="vibration">Vibration</string>
