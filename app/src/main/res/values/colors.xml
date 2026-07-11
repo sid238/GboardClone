@@ -1,13 +1,14 @@
 <resources>
     <!-- Light theme (Gboard light) -->
-    <color name="keyboard_bg">#F1F3F4</color>
+    <color name="keyboard_bg">#DDE1E6</color>
     <color name="key_bg">#FFFFFF</color>
-    <color name="key_bg_pressed">#D0D3D6</color>
-    <color name="key_special_bg">#D4D7DB</color>
+    <color name="key_bg_pressed">#C9CDD2</color>
+    <color name="key_special_bg">#CDD1D6</color>
     <color name="key_special_bg_pressed">#B7BABE</color>
     <color name="key_text">#1F1F1F</color>
     <color name="key_text_light">#5F6368</color>
-    <color name="suggestion_bg">#F1F3F4</color>
+    <color name="key_border">#C2C6CC</color>
+    <color name="suggestion_bg">#DDE1E6</color>
 
     <!-- Dark theme (Gboard dark) -->
     <color name="keyboard_bg_dark">#121212</color>

@@ -43,7 +43,6 @@ class GboardCloneService : InputMethodService() {
     private lateinit var rootView: LinearLayout
     private lateinit var keyRowsContainer: LinearLayout
     private var shiftKey: ImageView? = null
-    private var resizeMode = false
     private var pendingScale = Prefs.heightScale
     private var keyPopup: PopupWindow? = null
 
@@ -106,8 +105,11 @@ class GboardCloneService : InputMethodService() {
     private fun dismissPopups() {
         try { keyPopup?.dismiss() } catch (_: Exception) {}
         try { popup?.dismiss() } catch (_: Exception) {}
+        try { variantPicker?.dismiss() } catch (_: Exception) {}
         keyPopup = null
         popup = null
+        variantPicker = null
+        variantButtons = emptyList()
     }
 
     private fun errorView(msg: String): View {
@@ -151,17 +153,20 @@ class GboardCloneService : InputMethodService() {
         ContextCompat.getColor(this, if (Prefs.isDark) dark else light)
 
     private fun makeKeyDrawable(normal: Int, pressed: Int): StateListDrawable {
+        val border = if (!Prefs.isDarkNow) resources.getColor(R.color.key_border, theme) else 0
+        val bw = if (!Prefs.isDarkNow) dp(1) else 0
         return StateListDrawable().apply {
-            addState(intArrayOf(android.R.attr.state_pressed), roundRect(pressed))
-            addState(intArrayOf(), roundRect(normal))
+            addState(intArrayOf(android.R.attr.state_pressed), roundRect(pressed, border, bw))
+            addState(intArrayOf(), roundRect(normal, border, bw))
         }
     }
 
-    private fun roundRect(color: Int, radiusDp: Int = 8): GradientDrawable {
+    private fun roundRect(color: Int, radiusDp: Int = 8, strokeColor: Int = 0, strokeWidth: Int = 0): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(color)
             cornerRadius = dp(radiusDp).toFloat()
+            if (strokeWidth > 0) setStroke(strokeWidth, strokeColor)
         }
     }
 
@@ -203,19 +208,20 @@ class GboardCloneService : InputMethodService() {
             )
         }
         container.addView(keyRowsContainer)
+        container.addView(makeResizeHandle())
         return container
     }
 
-    private fun addResizeGrip() {
-        val grip = View(this).apply {
+    private fun makeResizeHandle(): View {
+        val handle = View(this).apply {
             background = roundRect(bgAccent, 6)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(10)).apply {
-                setMargins(dp(80), dp(4), dp(80), dp(2))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(9)).apply {
+                setMargins(dp(90), dp(3), dp(90), dp(3))
             }
         }
         var startY = 0f
         var startScale = 1f
-        grip.setOnTouchListener { _, e ->
+        handle.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startY = e.rawY
@@ -224,7 +230,7 @@ class GboardCloneService : InputMethodService() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = startY - e.rawY
-                    val s = (startScale + dy / 500f).coerceIn(0.7f, 1.6f)
+                    val s = (startScale + dy / 450f).coerceIn(0.7f, 1.6f)
                     rootView.scaleY = s
                     pendingScale = s
                     true
@@ -238,7 +244,7 @@ class GboardCloneService : InputMethodService() {
                 else -> false
             }
         }
-        keyRowsContainer.addView(grip)
+        return handle
     }
 
     private fun renderKeyboard() {
@@ -253,7 +259,6 @@ class GboardCloneService : InputMethodService() {
                 keyRowsContainer.addView(buildLetterRow(KeyboardLayouts.lettersRow2, 0.5f))
                 keyRowsContainer.addView(buildThirdLetterRow())
                 keyRowsContainer.addView(buildBottomRow())
-                if (resizeMode) addResizeGrip()
             }
             KeyboardMode.SYMBOLS_1 -> {
                 functionStrip()
@@ -261,7 +266,6 @@ class GboardCloneService : InputMethodService() {
                 keyRowsContainer.addView(buildSymbolRow(KeyboardLayouts.symbols1Row2))
                 keyRowsContainer.addView(buildSymbolThirdRow(KeyboardLayouts.symbols1Row3, "2/2", KeyboardMode.SYMBOLS_2))
                 keyRowsContainer.addView(buildBottomRow())
-                if (resizeMode) addResizeGrip()
             }
             KeyboardMode.SYMBOLS_2 -> {
                 functionStrip()
@@ -269,7 +273,6 @@ class GboardCloneService : InputMethodService() {
                 keyRowsContainer.addView(buildSymbolRow(KeyboardLayouts.symbols2Row2))
                 keyRowsContainer.addView(buildSymbolThirdRow(KeyboardLayouts.symbols2Row3, "1/2", KeyboardMode.SYMBOLS_1))
                 keyRowsContainer.addView(buildBottomRow())
-                if (resizeMode) addResizeGrip()
             }
             KeyboardMode.EMOJI -> emojiPanel()
             KeyboardMode.CLIPBOARD -> clipboardPanel()
@@ -284,26 +287,33 @@ class GboardCloneService : InputMethodService() {
         val row = newRow()
         if (Prefs.toolbarCollapsed) {
             row.addView(makeIconKey(R.drawable.ic_chevron, 0.8f, rotate = 0f) {
-                Prefs.toolbarCollapsed = false
-                renderKeyboard()
+                animateToolbar(collapse = false)
             })
             keyRowsContainer.addView(row)
             return
         }
         // Collapse button (left corner)
         row.addView(makeIconKey(R.drawable.ic_chevron, 0.8f, rotate = 180f) {
-            Prefs.toolbarCollapsed = true
-            renderKeyboard()
+            animateToolbar(collapse = true)
         })
         row.addView(makeIconKey(R.drawable.ic_mic, 0.8f) { startVoice() })
         row.addView(makeIconKey(R.drawable.ic_clipboard, 0.8f) { mode = KeyboardMode.CLIPBOARD; renderKeyboard() })
         row.addView(makeIconKey(R.drawable.ic_settings, 0.8f) { openSettings() })
-        // Resize toggle
-        row.addView(makeIconKey(R.drawable.ic_resize, 0.8f, tintAccent = resizeMode) {
-            resizeMode = !resizeMode
-            renderKeyboard()
-        })
         keyRowsContainer.addView(row)
+    }
+
+    private fun animateToolbar(collapse: Boolean) {
+        val cur = keyRowsContainer.getChildAt(0) as? View ?: return
+        val w = (if (cur.width > 0) cur.width else rootView.width).toFloat()
+        val outX = if (collapse) w else -w
+        cur.animate().translationX(outX).alpha(0f).setDuration(140).withEndAction {
+            Prefs.toolbarCollapsed = collapse
+            renderKeyboard()
+            val nw = keyRowsContainer.getChildAt(0)
+            nw.translationX = -outX
+            nw.alpha = 0f
+            nw.animate().translationX(0f).alpha(1f).setDuration(140)
+        }
     }
 
     private fun numberRowView() {
@@ -380,11 +390,11 @@ class GboardCloneService : InputMethodService() {
     }
 
     private fun makeCharKey(char: String): View {
-        val variantHint = KeyboardLayouts.longPressVariants[char.lowercase()]?.firstOrNull() ?: ""
-        val hint = KeyboardLayouts.hintMap[char.lowercase()] ?: variantHint
+        val hint = KeyboardLayouts.hintMap[char.lowercase()]
+            ?: KeyboardLayouts.longPressVariants[char.lowercase()]?.firstOrNull() ?: ""
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             background = makeKeyDrawable(bgKey, bgKeyPressed)
             elevation = 0f
             stateListAnimator = null
@@ -392,13 +402,14 @@ class GboardCloneService : InputMethodService() {
                 marginStart = dp(2); marginEnd = dp(2)
             }
         }
-        if (variantHint.isNotEmpty()) {
+        if (hint.isNotEmpty()) {
             container.addView(TextView(this).apply {
-                text = variantHint
+                text = hint
                 textSize = 10f
                 setTextColor(txSpecial)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
+                setPadding(0, dp(3), 0, 0)
             })
         }
         val label = TextView(this).apply {
@@ -409,19 +420,17 @@ class GboardCloneService : InputMethodService() {
             isAllCaps = false
         }
         container.addView(label)
-        container.setOnClickListener {
-            haptic(container); clickSound()
-            typeChar(char)
-            consumeOneShotShift()
-        }
         val variants = KeyboardLayouts.longPressVariants[char.lowercase()]
-        if (!variants.isNullOrEmpty()) {
-            container.setOnLongClickListener {
-                showVariantPopup(container, variants) { picked -> typeCharRaw(applyCase(picked)) }
-                true
+        if (variants.isNullOrEmpty()) {
+            container.setOnClickListener {
+                haptic(container); clickSound()
+                typeChar(char)
+                consumeOneShotShift()
             }
+            container.setOnTouchListener(keyPopTouch(container, applyCase(char)))
+        } else {
+            setupVariantKey(container, char, variants)
         }
-        attachKeyPop(container, applyCase(char))
         return container
     }
 
@@ -573,8 +582,13 @@ class GboardCloneService : InputMethodService() {
 
     private var popup: PopupWindow? = null
 
-    private fun attachKeyPop(view: View, text: String) {
-        view.setOnTouchListener { v, e ->
+    private var variantPicker: PopupWindow? = null
+    private var variantButtons: List<View> = emptyList()
+    private var variantPickerX = 0
+    private var variantCellW = 0
+
+    private fun keyPopTouch(view: View, text: String): View.OnTouchListener {
+        return View.OnTouchListener { v, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
                     try { showKeyPopup(v, text) } catch (_: Exception) {}
@@ -588,6 +602,121 @@ class GboardCloneService : InputMethodService() {
                 else -> false
             }
         }
+    }
+
+    private fun setupVariantKey(view: View, char: String, variants: List<String>) {
+        var longPressed = false
+        var active = false
+        var selected = -1
+        val handler = Handler(Looper.getMainLooper())
+        var runnable: Runnable? = null
+        view.setOnClickListener {
+            if (!longPressed) {
+                haptic(view); clickSound(); typeChar(char); consumeOneShotShift()
+            }
+        }
+        view.setOnTouchListener { v, e ->
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    longPressed = false
+                    active = false
+                    selected = -1
+                    try { showKeyPopup(v, applyCase(char)) } catch (_: Exception) {}
+                    runnable = Runnable {
+                        longPressed = true
+                        try { keyPopup?.dismiss() } catch (_: Exception) {}
+                        keyPopup = null
+                        showVariantPicker(v, variants)
+                        active = true
+                    }
+                    handler.postDelayed(runnable!!, 350)
+                    false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (active) updateVariantSelection(e.rawX, e.rawY)
+                    false
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(runnable!!)
+                    try { keyPopup?.dismiss() } catch (_: Exception) {}
+                    keyPopup = null
+                    if (active) {
+                        val chosen = if (selected in variants.indices) variants[selected] else applyCase(char)
+                        typeCharRaw(chosen)
+                        dismissVariantPicker()
+                        active = false
+                        true
+                    } else {
+                        false
+                    }
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun showVariantPicker(anchor: View, variants: List<String>) {
+        try {
+            val cell = dp(44)
+            val container = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                background = makeKeyDrawable(bgPopup, bgPopup)
+            }
+            val buttons = variants.map { sym ->
+                val b = TextView(this).apply {
+                    text = sym
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                    setTextColor(txPopup)
+                    setPadding(dp(10), dp(6), dp(10), dp(6))
+                    background = makeKeyDrawable(bgPopup, bgPopup)
+                    layoutParams = LinearLayout.LayoutParams(cell, cell).apply {
+                        marginStart = dp(2); marginEnd = dp(2)
+                    }
+                }
+                container.addView(b)
+                b
+            }
+            val pw = PopupWindow(this).apply {
+                contentView = container
+                isOutsideTouchable = true
+                setBackgroundDrawable(roundRect(bgPopup, 12))
+            }
+            variantPicker = pw
+            variantButtons = buttons
+            variantCellW = cell + dp(4)
+            pw.showAsDropDown(anchor, 0, -(anchor.height + dp(6)))
+            val loc = IntArray(2)
+            container.getLocationOnScreen(loc)
+            variantPickerX = loc[0]
+            highlightVariant(-1)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun updateVariantSelection(rawX: Float, rawY: Float) {
+        val idx = if (rawX >= variantPickerX)
+            ((rawX - variantPickerX) / variantCellW).toInt().coerceIn(0, variantButtons.lastIndex)
+        else -1
+        highlightVariant(idx)
+    }
+
+    private fun highlightVariant(idx: Int) {
+        variantButtons.forEachIndexed { i, b ->
+            val sel = i == idx
+            b.background = makeKeyDrawable(
+                if (sel) bgAccent else bgPopup,
+                if (sel) bgAccentPressed else bgPopup
+            )
+            (b as TextView).setTextColor(if (sel) txAccent else txPopup)
+        }
+    }
+
+    private fun dismissVariantPicker() {
+        try { variantPicker?.dismiss() } catch (_: Exception) {}
+        variantPicker = null
+        variantButtons = emptyList()
     }
 
     private fun showKeyPopup(anchor: View, text: String) {
