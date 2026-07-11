@@ -54,19 +54,33 @@ class GboardCloneService : InputMethodService() {
     }
 
     override fun onCreateInputView(): View {
-        rootView = buildRootView()
-        mode = KeyboardMode.LETTERS
-        shiftState = ShiftState.OFF
-        renderKeyboard()
-        return rootView
+        try {
+            rootView = buildRootView()
+            mode = KeyboardMode.LETTERS
+            shiftState = ShiftState.OFF
+            renderKeyboard()
+            return rootView
+        } catch (e: Exception) {
+            return errorView("Keyboard init error: ${e.message}")
+        }
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        if (!::keyRowsContainer.isInitialized) return
         mode = KeyboardMode.LETTERS
         shiftState = ShiftState.OFF
         SuggestionEngine.resetContext()
         renderKeyboard()
+    }
+
+    private fun errorView(msg: String): View {
+        return TextView(this).apply {
+            text = msg
+            setTextColor(0xFFB00020.toInt())
+            textSize = 14f
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
     }
 
     override fun onDestroy() {
@@ -159,9 +173,10 @@ class GboardCloneService : InputMethodService() {
     }
 
     private fun renderKeyboard() {
-        rootView.setBackgroundColor(bgKeyboard)
-        keyRowsContainer.removeAllViews()
-        when (mode) {
+        try {
+            rootView.setBackgroundColor(bgKeyboard)
+            keyRowsContainer.removeAllViews()
+            when (mode) {
             KeyboardMode.LETTERS -> {
                 functionStrip()
                 if (Prefs.numberRow) numberRowView()
@@ -188,6 +203,10 @@ class GboardCloneService : InputMethodService() {
             KeyboardMode.CLIPBOARD -> clipboardPanel()
         }
         updateSuggestions()
+        } catch (e: Exception) {
+            keyRowsContainer.removeAllViews()
+            keyRowsContainer.addView(errorView("Render error: ${e.message}"))
+        }
     }
 
     private fun renderSuggestionStrip(words: List<String>) {
