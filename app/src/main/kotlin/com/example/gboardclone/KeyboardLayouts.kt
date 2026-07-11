@@ -34,7 +34,7 @@ object KeyboardLayouts {
     val lettersRow3 = "zxcvbnm".map { it.toString() }
 
     val symbols1Row1 = "1234567890".map { it.toString() }
-    val symbols1Row2 = "@#$_&-+()".map { it.toString() }
+    val symbols1Row2 = "@#\$&-+()".map { it.toString() }
     val symbols1Row3 = listOf("*", "\"", "'", ":", ";", "!", "?")
 
     val symbols2Row1 = "~`|•√π÷×".map { it.toString() }
