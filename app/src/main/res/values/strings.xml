@@ -2,5 +2,25 @@
     <string name="app_name">GboardClone</string>
     <string name="enable_keyboard">Enable Keyboard</string>
     <string name="switch_keyboard">Switch Keyboard</string>
-    <string name="instructions">1. Tap "Enable Keyboard" and turn on GboardClone.\n2. Tap "Switch Keyboard" and select GboardClone.\n3. Open any text field to try it out.</string>
+    <string name="instructions">1. Tap \"Enable Keyboard\" and turn on GboardClone.\n2. Tap \"Switch Keyboard\" and select GboardClone.\n3. Open any text field to try it out.</string>
+
+    <!-- App / Settings -->
+    <string name="settings">Settings</string>
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="number_row">Number row</string>
+    <string name="number_row_summary">Show digits above the letters</string>
+    <string name="vibration">Vibration</string>
+    <string name="vibration_summary">Vibrate on key press</string>
+    <string name="sound">Key sound</string>
+    <string name="sound_summary">Play a sound on key press</string>
+    <string name="clear_clipboard">Clear clipboard history</string>
+    <string name="features_title">Features</string>
+    <string name="about_text">GboardClone — a customizable keyboard with emoji, clipboard, voice typing, autocorrect and themes.</string>
+
+    <!-- Emoji categories -->
+    <string name="emoji_search_hint">Search emoji</string>
+    <string name="emoji_empty">No emoji found</string>
+    <string name="clipboard_empty">Clipboard is empty</string>
 </resources>

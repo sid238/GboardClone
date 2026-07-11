@@ -1,0 +1,66 @@
+package com.example.gboardclone
+
+import android.content.Context
+import android.content.SharedPreferences
+
+object Prefs {
+    private const val NAME = "gboardclone_prefs"
+    private lateinit var sp: SharedPreferences
+
+    fun init(ctx: Context) {
+        sp = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+    }
+
+    var isDark: Boolean
+        get() = sp.getBoolean(KEY_DARK, false)
+        set(v) = sp.edit().putBoolean(KEY_DARK, v).apply()
+
+    var numberRow: Boolean
+        get() = sp.getBoolean(KEY_NUMBER_ROW, false)
+        set(v) = sp.edit().putBoolean(KEY_NUMBER_ROW, v).apply()
+
+    var vibration: Boolean
+        get() = sp.getBoolean(KEY_VIBRATION, true)
+        set(v) = sp.edit().putBoolean(KEY_VIBRATION, v).apply()
+
+    var sound: Boolean
+        get() = sp.getBoolean(KEY_SOUND, false)
+        set(v) = sp.edit().putBoolean(KEY_SOUND, v).apply()
+
+    var emojiRecents: List<String>
+        get() = sp.getString(KEY_EMOJI_RECENTS, "")
+            ?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+        set(v) = sp.edit().putString(KEY_EMOJI_RECENTS, v.joinToString(",")).apply()
+
+    var clipboard: List<String>
+        get() = sp.getString(KEY_CLIPBOARD, "")
+            ?.split("\u0001")?.filter { it.isNotEmpty() } ?: emptyList()
+        set(v) = sp.edit().putString(KEY_CLIPBOARD, v.joinToString("\u0001")).apply()
+
+    var learnedWords: Set<String>
+        get() = sp.getStringSet(KEY_LEARNED, emptySet()) ?: emptySet()
+        set(v) = sp.edit().putStringSet(KEY_LEARNED, v).apply()
+
+    fun addClipboard(text: String) {
+        if (text.isBlank()) return
+        val list = clipboard.toMutableList()
+        list.remove(text)
+        list.add(0, text)
+        clipboard = list.take(20)
+    }
+
+    fun addEmojiRecent(emoji: String) {
+        val list = emojiRecents.toMutableList()
+        list.remove(emoji)
+        list.add(0, emoji)
+        emojiRecents = list.take(60)
+    }
+
+    private const val KEY_DARK = "dark"
+    private const val KEY_NUMBER_ROW = "number_row"
+    private const val KEY_VIBRATION = "vibration"
+    private const val KEY_SOUND = "sound"
+    private const val KEY_EMOJI_RECENTS = "emoji_recents"
+    private const val KEY_CLIPBOARD = "clipboard"
+    private const val KEY_LEARNED = "learned"
+}
