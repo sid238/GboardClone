@@ -882,7 +882,7 @@ class GboardCloneService : InputMethodService() {
         val pager = HorizontalScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250))
             isHorizontalScrollBarEnabled = false
-            fillViewport = true
+            isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
         }
         pager.addView(pagesLL)
@@ -899,26 +899,7 @@ class GboardCloneService : InputMethodService() {
         }
         pagerFrame.addView(catLabel)
 
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-        }
         val tabViews = mutableListOf<ImageView>()
-        for (i in lists.indices) {
-            val iv = ImageView(this).apply {
-                setImageResource(icons[i])
-                setColorFilter(txSpecial, PorterDuff.Mode.SRC_IN)
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
-                    marginStart = dp(2); marginEnd = dp(2)
-                }
-                setOnClickListener { pager.smoothScrollTo(i * pageW, 0); showCat(i) }
-            }
-            tabViews.add(iv)
-            tabs.addView(iv)
-        }
-
         val curCat = intArrayOf(0)
         fun showCat(i: Int) {
             if (i != curCat[0]) {
@@ -936,6 +917,25 @@ class GboardCloneService : InputMethodService() {
                 .withEndAction { catLabel.visibility = View.GONE }
         }
         showCat(0)
+
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        for (i in lists.indices) {
+            val iv = ImageView(this).apply {
+                setImageResource(icons[i])
+                setColorFilter(txSpecial, PorterDuff.Mode.SRC_IN)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                    marginStart = dp(2); marginEnd = dp(2)
+                }
+                setOnClickListener { pager.smoothScrollTo(i * pageW, 0); showCat(i) }
+            }
+            tabViews.add(iv)
+            tabs.addView(iv)
+        }
 
         var settle: Runnable? = null
         pager.setOnScrollChangeListener { _, x, _, _, _ ->
