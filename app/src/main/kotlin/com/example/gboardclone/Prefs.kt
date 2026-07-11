@@ -3,6 +3,7 @@ package com.example.gboardclone
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
+import android.content.res.Resources
 
 object Prefs {
     private const val NAME = "gboardclone_prefs"
@@ -27,7 +28,7 @@ object Prefs {
 
     var isDark: Boolean
         get() = isDarkNow
-        set(v) = themeMode = if (v) 1 else 0
+        set(v) { themeMode = if (v) 1 else 0 }
 
     var numberRow: Boolean
         get() = sp.getBoolean(KEY_NUMBER_ROW, false)
