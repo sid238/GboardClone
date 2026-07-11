@@ -1,11 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Gboard Clone</string>
-    <string name="settings">Settings</string>
-    <string name="theme_label">Theme</string>
-    <string name="light">Light</string>
-    <string name="dark">Dark</string>
-    <string name="vibration_label">Vibration on key press</string>
-    <string name="sound_label">Sound on key press</string>
-    <string name="preview_label">Show key preview popup</string>
+    <string name="app_name">GboardClone</string>
+    <string name="enable_keyboard">Enable Keyboard</string>
+    <string name="switch_keyboard">Switch Keyboard</string>
+    <string name="instructions">1. Tap "Enable Keyboard" and turn on GboardClone.\n2. Tap "Switch Keyboard" and select GboardClone.\n3. Open any text field to try it out.</string>
 </resources>

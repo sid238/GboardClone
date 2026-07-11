@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.GboardClone" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="android:windowBackground">@color/white</item>
+    </style>
+
+    <style name="Theme.GboardClone.Keyboard" parent="Theme.AppCompat">
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>
