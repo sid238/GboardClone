@@ -24,7 +24,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.GridView
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
@@ -837,56 +839,111 @@ class GboardCloneService : InputMethodService() {
     // Emoji panel
     // ---------------------------------------------------------------------------
     private fun emojiPanel() {
+        val pageW = resources.displayMetrics.widthPixels
+        val names = listOf(
+            "Recents", "Smileys", "Animals", "Food", "Activity",
+            "Travel", "Objects", "Symbols", "Flags"
+        )
+        val icons = listOf(
+            R.drawable.ic_cat_recent, R.drawable.ic_emoji, R.drawable.ic_cat_animal,
+            R.drawable.ic_cat_food, R.drawable.ic_cat_sport, R.drawable.ic_cat_travel,
+            R.drawable.ic_cat_object, R.drawable.ic_cat_symbol, R.drawable.ic_cat_flag
+        )
+        val lists: List<List<String>> =
+            listOf(Prefs.emojiRecents) + EmojiData.categories.map { it.second }
+
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        val cats: List<Pair<String, List<String>>> =
-            listOf("🕘" to Prefs.emojiRecents) + EmojiData.categories
+        val catLabel = TextView(this).apply {
+            textSize = 14f
+            setTextColor(txKey)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(6), dp(14), dp(6))
+            background = roundRect(bgPopup, 16)
+            visibility = View.GONE
+        }
 
-        val tabRow = LinearLayout(this).apply {
+        val pagesLL = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            layoutParams = ViewGroup.LayoutParams(pageW * lists.size, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        for (list in lists) {
+            val page = ScrollView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(pageW, dp(250))
+                isVerticalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+            }
+            page.addView(buildEmojiGrid(list))
+            pagesLL.addView(page)
+        }
+        val pager = HorizontalScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250))
+            isHorizontalScrollBarEnabled = false
+            fillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        pager.addView(pagesLL)
+
+        val pagerFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(250))
+        }
+        pagerFrame.addView(pager)
+        catLabel.layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            topMargin = dp(10)
+        }
+        pagerFrame.addView(catLabel)
+
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             setPadding(dp(4), dp(4), dp(4), dp(4))
         }
-        val grid = GridView(this).apply {
-            numColumns = 7
-            stretchMode = GridView.STRETCH_COLUMN_WIDTH
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { height = dp(250) }
-        }
-
-        fun setGrid(list: List<String>) {
-            val safe = if (list.isEmpty()) EmojiData.all else list
-            grid.adapter = ArrayAdapter(this, R.layout.emoji_item, R.id.emojiText, safe)
-        }
-
-        for ((icon, list) in cats) {
-            val tab = Button(this).apply {
-                text = icon
-                textSize = 20f
-                setTextColor(txSpecial)
-                background = makeKeyDrawable(bgSpecial, bgSpecialPressed)
+        val tabViews = mutableListOf<ImageView>()
+        for (i in lists.indices) {
+            val iv = ImageView(this).apply {
+                setImageResource(icons[i])
+                setColorFilter(txSpecial, PorterDuff.Mode.SRC_IN)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
                 layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
                     marginStart = dp(2); marginEnd = dp(2)
                 }
-                setOnClickListener {
-                    haptic(this); clickSound()
-                    setGrid(list)
+                setOnClickListener { pager.smoothScrollTo(i * pageW, 0); showCat(i) }
+            }
+            tabViews.add(iv)
+            tabs.addView(iv)
+        }
+
+        val curCat = intArrayOf(0)
+        fun showCat(i: Int) {
+            if (i != curCat[0]) {
+                curCat[0] = i
+                tabViews.forEachIndexed { idx, v ->
+                    v.setBackgroundColor(if (idx == i) bgSpecialPressed else 0)
+                    v.setColorFilter(if (idx == i) txAccent else txSpecial, PorterDuff.Mode.SRC_IN)
                 }
             }
-            tabRow.addView(tab)
+            catLabel.text = names[i]
+            catLabel.visibility = View.VISIBLE
+            catLabel.alpha = 1f
+            catLabel.animate().cancel()
+            catLabel.animate().alpha(0f).setStartDelay(600).setDuration(400)
+                .withEndAction { catLabel.visibility = View.GONE }
         }
-        setGrid(Prefs.emojiRecents)
+        showCat(0)
 
-        grid.setOnItemClickListener { _, _, position, _ ->
-            val emoji = grid.adapter.getItem(position) as String
-            haptic(grid); clickSound()
-            commitText(emoji)
-            Prefs.addEmojiRecent(emoji)
+        var settle: Runnable? = null
+        pager.setOnScrollChangeListener { _, x, _, _, _ ->
+            val idx = ((x + pageW / 2) / pageW).toInt().coerceIn(0, lists.lastIndex)
+            if (idx != curCat[0]) showCat(idx)
+            settle?.let { pager.removeCallbacks(it) }
+            settle = Runnable { pager.smoothScrollTo(idx * pageW, 0) }
+            pager.postDelayed(settle!!, 120)
         }
 
         val bar = newRow()
@@ -896,10 +953,49 @@ class GboardCloneService : InputMethodService() {
         })
         bar.addView(makeSpecialKey("⌫", weight = 2f, repeatable = true) { onDeletePressed() })
 
-        wrap.addView(tabRow)
-        wrap.addView(grid)
+        wrap.addView(pagerFrame)
+        wrap.addView(tabs)
         wrap.addView(bar)
         keyRowsContainer.addView(wrap)
+    }
+
+    private fun buildEmojiGrid(list: List<String>): View {
+        if (list.isEmpty()) {
+            return TextView(this).apply {
+                text = "No recent emojis"
+                setTextColor(txSpecial)
+                gravity = Gravity.CENTER
+                textSize = 15f
+                setPadding(dp(12), dp(40), dp(12), dp(12))
+            }
+        }
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        val rows = list.chunked(7)
+        for (rowItems in rows) {
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (e in rowItems) {
+                val b = TextView(this).apply {
+                    text = e
+                    textSize = 24f
+                    gravity = Gravity.CENTER
+                    layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
+                    setOnClickListener {
+                        haptic(this); clickSound()
+                        commitText(e)
+                        Prefs.addEmojiRecent(e)
+                    }
+                }
+                r.addView(b)
+            }
+            for (k in rowItems.size until 7) {
+                r.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f) })
+            }
+            col.addView(r)
+        }
+        return col
     }
 
     // ---------------------------------------------------------------------------
